@@ -3,17 +3,18 @@ import numpy as np
 import pygame
 
 # ----------------simulation-----------------
-numRows, numCols = 20, 20
-snake = [(10, 10), (10, 11)]
-apple = (3, 3)
+numRows, numCols = 10, 10
+snake = [(3, 3), (3, 4)]
+apple = (5, 5)
 v_x, v_y = 1, 0 
 dead = False
 NUM_ITERS = 10
 MAX_TIME_STEPS = 1000
+MIN_TIME_TO_EAT_APPLE = 20
 # ----------------simulation-----------------
 
 # ----------------animation stuff--------------
-interval = 1000
+interval = 100
 animation = False
 screenWidth, screenHeight = 800, 800
 blockWidth, blockHeight = screenWidth / numRows, screenHeight / numRows
@@ -31,9 +32,9 @@ def reset():
   global v_x
   global v_y
   global dead
-  numRows, numCols = 20, 20
-  snake = [(10, 10), (10, 11)]
-  apple = (3, 3)
+  # snake = [(10, 10), (10, 11)]
+  snake = [((int) (random() * numCols), (int) (random() * numRows))]
+  apple = (int) (random() * numCols), (int) (random() * numRows)
   v_x, v_y = 1, 0 
   dead = False
 
@@ -41,57 +42,66 @@ def simulate_headless(net):
   scores = []
   for _ in range(NUM_ITERS):
     reset()
-    penalty = 0
+    last_ate_apple = 0
     for t in range(MAX_TIME_STEPS):
       if dead:
         break
-      if penalty >= 10:
+      if t - last_ate_apple > MIN_TIME_TO_EAT_APPLE:
         break
-
-      step()
+      
       sensory_vector = get_sensory()
-
       activation = net.activate(sensory_vector)
       action = np.argmax(activation)
       change_direction(action)
+      apple = step()
+      if apple:
+        last_ate_apple = t
 
-    scores.append(len(snake) - penalty)
+    scores.append(len(snake))
+
   return np.mean(scores)
 
 def simulate_animation(net):
   scores = []
   global screen
-  for _ in range(NUM_ITERS):
+  for _ in range(1):
     reset()
-    ts = 0
+    last_ate_apple = 0
     screen = pygame.display.set_mode((screenWidth, screenHeight))
     STEP = pygame.USEREVENT + 1
-    pygame.time.set_timer(STEP, 100)
+    pygame.time.set_timer(STEP, interval)
 
     pygame.init()
     running = True
+    ts = 0
     while running:
-      print(get_sensory())
+      ts += 1
       if dead:
         running = False
+      # if ts - last_ate_apple > MIN_TIME_TO_EAT_APPLE:
+      #   break
       
       for event in pygame.event.get():
         if (event.type == pygame.QUIT):
           running = False
         elif (event.type == STEP):
-          step()
+
           sensory_vector = get_sensory()
           activation = net.activate(sensory_vector)
           action = np.argmax(activation)
           change_direction(action)
-          ts += 1
-      if ts == MAX_TIME_STEPS:
-        running = False
+          apple = step()
+          if apple:
+            last_ate_apple = ts
+
+      # if ts == MAX_TIME_STEPS:
+      #   running = False
       screen.fill(BLACK)
       draw_snake() 
       draw_apple() 
       pygame.display.flip()
     pygame.quit()
+
     scores.append(len(snake))
   return np.mean(scores)
 
@@ -155,6 +165,38 @@ def draw_snake():
       rect = pygame.Rect(getLeftTop(x, y), (blockWidth, blockHeight))
       pygame.draw.rect(screen, WHITE, rect)
 
+def get_sensory_old():
+  x, y = snake[-1]
+
+  # N, S, E, W
+  not_blocked_by_wall = [y > 0, y < numRows, x < numCols, x > 0]
+
+  not_blocked_by_body = [1, 1, 1, 1]
+
+  for (body_x, body_y) in snake[:-1]:
+    if body_x == x and body_y == y - 1:
+      not_blocked_by_body[1] = 0
+    elif body_x == x and body_y == y + 1:
+      not_blocked_by_body[0] = 0
+    elif body_y == y and body_x == x + 1:
+      not_blocked_by_body[2] = 0
+    elif body_y == y and body_x == x - 1:
+      not_blocked_by_body[3] = 0
+
+  # fruit in direction
+  a_x, a_y = apple
+  fruit_in_direction = [
+    a_y < y,
+    a_y > y,
+    a_x > x,
+    a_x < x
+  ]
+
+  not_blocked = [a and b for a, b in zip(not_blocked_by_wall, not_blocked_by_body)]
+
+  return np.array(not_blocked + fruit_in_direction) * 1
+  # return np.array(fruit_in_direction) * 1
+
 def get_sensory():
   x, y = snake[-1]
 
@@ -207,6 +249,8 @@ def step():
   global apple
   global dead
 
+  ate_apple = False
+
   x, y = snake[-1]
   snake.append((x + v_x, y + v_y))
 
@@ -214,6 +258,7 @@ def step():
     snake.pop(0)
   else:
     apple = (int) (random() * numCols), (int) (random() * numRows)
+    ate_apple = True
 
   x, y = snake[-1]
 
@@ -227,7 +272,9 @@ def step():
       dead = True
       break
 
-  return snake[-1] == apple
+
+
+  return ate_apple
 
   
 

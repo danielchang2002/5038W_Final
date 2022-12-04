@@ -3,21 +3,26 @@
 """
 
 from __future__ import print_function
-from main import simulate
+from main import *
 import os
 import neat
 import visualize
 
 def eval_genomes(genomes, config):
+    best_net = None
+    best_fit = -1
     for genome_id, genome in genomes:
 
         net = neat.nn.FeedForwardNetwork.create(genome, config)
 
         genome.fitness = simulate(net)  
 
-        # for xi, xo in zip(xor_inputs, xor_outputs):
-        #     output = net.activate(xi)
-        #     genome.fitness -= (output[0] - xo[0]) ** 2
+        if genome.fitness > best_fit:
+            best_fit = genome.fitness
+            best_net = net
+
+    if best_fit > 5:
+        simulate_animation(best_net)
 
 
 def run(config_file):
