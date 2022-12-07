@@ -9,12 +9,12 @@ apple = (5, 5)
 v_x, v_y = 1, 0 
 dead = False
 NUM_ITERS = 10
-MAX_TIME_STEPS = 1000
-MIN_TIME_TO_EAT_APPLE = 200
+# MAX_TIME_STEPS = 1000
+MIN_TIME_TO_EAT_APPLE = 100
 # ----------------simulation-----------------
 
 # ----------------animation stuff--------------
-interval = 100
+interval = 1000
 networkWidth, networkHeight = 500, 900
 gameWidth, gameHeight = 900, 900
 window_buffer = 25
@@ -48,7 +48,8 @@ def simulate_headless(net):
   for _ in range(NUM_ITERS):
     reset()
     last_ate_apple = 0
-    for t in range(MAX_TIME_STEPS):
+    t = 0
+    while True:
       if dead:
         break
       if t - last_ate_apple > MIN_TIME_TO_EAT_APPLE:
@@ -59,6 +60,8 @@ def simulate_headless(net):
       action = np.argmax(activation)
       change_direction(action)
       apple = step()
+      t += 1
+
       if apple:
         last_ate_apple = t
 
@@ -82,14 +85,11 @@ def simulate_animation(net):
       running = False
     if ts - last_ate_apple > MIN_TIME_TO_EAT_APPLE:
       running = False
-    if ts == MAX_TIME_STEPS:
-      running = False
     
     for event in pygame.event.get():
       if (event.type == pygame.QUIT):
         running = False
       elif (event.type == STEP):
-        ts += 1
         sensory_vector = get_sensory()
         activation = net.activate(sensory_vector)
         action = np.argmax(activation)
@@ -97,6 +97,14 @@ def simulate_animation(net):
         apple = step()
         if apple:
           last_ate_apple = ts
+
+        print(net.input_nodes)
+        print(net.output_nodes)
+        print(net.node_evals)
+        print(net.values)
+        print()
+        print()
+        print()
 
     screen.fill(BLACK)
     draw_square() 
@@ -113,32 +121,36 @@ def draw_snake():
 def get_sensory():
   x, y = snake[-1]
 
-  # distance to wall
-  # d_N, d_S, d_E, d_W = y, numRows - y, numCols - x, x
-  dist_to_wall = [y, numRows - y, numCols - x, x]
+  # inverted distance to wall
+  # d_N, d_S, d_E, d_W
+  dist_to_wall = [1 / (y + 1), 1 / (numRows - y), 1 / (numCols - x), 1 / (x + 1)]
 
-  # distance to tail (or just distance to wall if the cardinal dir doesn't hit tail)
-  dist_to_tail = [y, numRows - y, numCols - x, x]
+  # flag for if will hit tail in this cardinal direction
+  will_hit_tail = [0, 0, 0, 0]
 
   for (body_x, body_y) in snake[:-1]:
     if body_x == x:
       if body_y > y:
-        dist_to_tail[1] = min(dist_to_tail[1], body_y - y)
+        will_hit_tail[1] = 1
       else:
-        dist_to_tail[0] = min(dist_to_tail[0], y - body_y)
+        will_hit_tail[0] = 1
     elif body_y == y:
       if body_x > x:
-        dist_to_tail[2] = min(dist_to_tail[2], body_x - x)
+        will_hit_tail[2] = 1
       else:
-        dist_to_tail[3] = min(dist_to_tail[3], x - body_x)
+        will_hit_tail[3] = 1
 
-  return np.array(dist_to_wall + dist_to_tail) / numRows
-  # # apple
-  # a_x, a_y = apple
+  # apple
+  a_x, a_y = apple
 
-  # apple_info = [abs(a_x - x) + abs(a_y - y), a_x - x, y - a_y]
+  apple_info = [
+    x == a_x and a_y < y,
+    x == a_x and a_y > y,
+    y == a_y and a_x > x,
+    y == a_y and a_x < x,
+  ]
 
-  # return np.array(dist_to_wall + dist_to_tail + apple_info)
+  return 1.0 * np.array(dist_to_wall + will_hit_tail + apple_info)
 
 def change_direction(code):
   global v_x
@@ -167,6 +179,7 @@ def step():
 
   x, y = snake[-1]
   snake.append((x + v_x, y + v_y))
+  x, y = snake[-1]
 
   # hit wall
   if x < 0 or x >= numCols or y < 0 or y >= numRows:
@@ -183,8 +196,6 @@ def step():
   else:
     apple = (int) (random() * numCols), (int) (random() * numRows)
     ate_apple = True
-
-  x, y = snake[-1]
 
   return ate_apple
 
