@@ -1,0 +1,8 @@
+certifi==2022.9.24
+fonttools==4.25.0
+graphviz==0.20.1
+kiwisolver
+matplotlib
+neat-python==0.92
+numpy
+pygame==2.1.2
