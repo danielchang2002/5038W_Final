@@ -1,4 +1,5 @@
 from __future__ import print_function
+import multiprocessing
 import pickle
 from snake import *
 import os
@@ -19,8 +20,15 @@ def eval_genomes(genomes, config):
             best_fit = genome.fitness
             best_genome = genome
 
-    if best_fit >= 5:
+    if best_fit >= 20:
         replay_genome(best_genome, config)
+
+def eval_genome(genome, config):
+    net = neat.nn.FeedForwardNetwork.create(genome, config)
+
+    fitness = simulate_headless(net)  
+    return fitness
+
 
 def run(config_file):
     # Load configuration.
@@ -38,7 +46,10 @@ def run(config_file):
     p.add_reporter(neat.Checkpointer(5))
 
     # Run for up to 500 generations.
-    winner = p.run(eval_genomes, 1000)
+    # winner = p.run(eval_genomes, 500)
+
+    pe = neat.ParallelEvaluator(multiprocessing.cpu_count(), eval_genome)
+    winner = p.run(pe.evaluate, n=500)
 
     with open('winner-feedforward', 'wb') as f:
         pickle.dump(winner, f)
@@ -48,7 +59,6 @@ def run(config_file):
 
 def replay_genome(genome, config):
     net = neat.nn.FeedForwardNetwork.create(genome, config)
-    simulate_animation(net)
 
     node_names = {
         -1 : "d_N_wall",
@@ -66,27 +76,34 @@ def replay_genome(genome, config):
         0: 'up', 1 : "left", 2 : "down", 3 : "right"
     }
 
-    # visualize.draw_net(config, genome, True, node_names=node_names)
+    visualize.draw_net(config, genome, False, node_names=node_names, filename="winner-feedforward.gv", prune_unused=True)
 
-    # visualize.draw_net(config, genome, view=True, node_names=node_names,
-    #                    filename="winner-feedforward.gv")
+    simulate_animation(net)
 
-def test(config_file, pop_file):
+def test_population(config_file, pop_file):
     config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                          neat.DefaultSpeciesSet, neat.DefaultStagnation,
                          config_file)
     p = neat.Checkpointer.restore_checkpoint(pop_file)
     p.run(eval_genomes, 1)
 
+def test_winner(config_file, genome):
+    with open(genome, "rb") as f:
+        winner = pickle.load(f, encoding="latin-1")
+
+    config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                         neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                         config_file)
+    
+    replay_genome(winner, config)
+
+
 
 if __name__ == '__main__':
-    # Determine path to configuration file. This path manipulation is
-    # here so that the script will run successfully regardless of the
-    # current working directory.
     local_dir = os.path.dirname(__file__)
     config_path = os.path.join(local_dir, 'config-feedforward')
 
     if len(sys.argv) == 2:
-        test(config_path, sys.argv[1])
+        test_winner(config_path, sys.argv[1])
     else:
         run(config_path)

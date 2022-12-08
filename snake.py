@@ -1,6 +1,9 @@
 from random import random
+import random as random_module
 import numpy as np
 import pygame
+
+random_module.seed(42)
 
 # ----------------simulation-----------------
 numRows, numCols = 10, 10
@@ -14,7 +17,7 @@ MIN_TIME_TO_EAT_APPLE = 100
 # ----------------simulation-----------------
 
 # ----------------animation stuff--------------
-interval = 1000
+interval = 100
 networkWidth, networkHeight = 500, 900
 gameWidth, gameHeight = 900, 900
 window_buffer = 25
@@ -98,20 +101,33 @@ def simulate_animation(net):
         if apple:
           last_ate_apple = ts
 
-        print(net.input_nodes)
-        print(net.output_nodes)
-        print(net.node_evals)
-        print(net.values)
-        print()
-        print()
-        print()
-
     screen.fill(BLACK)
     draw_square() 
     draw_snake() 
     draw_apple() 
+    draw_network(net)
     pygame.display.flip()
   pygame.quit()
+
+def draw_network(net):
+  print(net.input_nodes)
+  print(net.output_nodes)
+
+  node_names = {
+      -1 : "d_N_wall",
+      -2 : "d_S_wall",
+      -3 : "d_E_wall",
+      -4 : "d_W_wall",
+      -5 : "tail_N",
+      -6 : "tail_S",
+      -7 : "tail_E",
+      -8 : "tail_W",
+      -9 : "apple_N",
+      -10 : "apple_S",
+      -11 : "apple_E",
+      -12 : "apple_W",
+      0: 'up', 1 : "left", 2 : "down", 3 : "right"
+  }
 
 def draw_snake():
   for i, (x, y) in enumerate(snake):
@@ -150,6 +166,7 @@ def get_sensory():
     y == a_y and a_x < x,
   ]
 
+  # return 1.0 * np.array(dist_to_wall + will_hit_tail)
   return 1.0 * np.array(dist_to_wall + will_hit_tail + apple_info)
 
 def change_direction(code):
