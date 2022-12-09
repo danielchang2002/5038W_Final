@@ -74,7 +74,7 @@ def simulate_headless(net):
 
   return np.mean(scores)
 
-def simulate_animation(net):
+def simulate_animation(net, genome):
   global screen
   global font
   reset()
@@ -109,11 +109,11 @@ def simulate_animation(net):
     draw_square() 
     draw_snake() 
     draw_apple() 
-    draw_network(net)
+    draw_network(net, genome)
     pygame.display.flip()
   pygame.quit()
 
-def draw_network(net):
+def draw_network(net, genome):
   node_names = {
       -1 : "d_N_wall",
       -2 : "d_S_wall",
@@ -131,7 +131,7 @@ def draw_network(net):
   }
 
   startY = window_buffer + NODE_SIZE
-  startX = window_buffer + NODE_SIZE
+  startX = window_buffer
 
   for i, input_node in enumerate(net.input_nodes):
     center = (startX, startY + i * 3 * NODE_SIZE)
@@ -140,7 +140,7 @@ def draw_network(net):
 
     color = (net.values[input_node] * 255, 0, 0)
 
-    center2 = startX + 6 * NODE_SIZE, startY + i * 3 * NODE_SIZE + 10
+    center2 = startX + 5.5 * NODE_SIZE, startY + i * 3 * NODE_SIZE + 10
     pygame.draw.circle(screen, color, center2, NODE_SIZE)
     pygame.draw.circle(screen, WHITE, center2, NODE_SIZE, width=5)
 
@@ -148,10 +148,16 @@ def draw_network(net):
   startX = screenWidth - gameWidth - window_buffer * 3 - NODE_SIZE
 
   for i, output_node in enumerate(net.output_nodes):
-    center2 = startX, startY + i * 3 * NODE_SIZE + 10
+    center2 = startX - 2 * NODE_SIZE, startY + i * 3 * NODE_SIZE + 10
     color = (net.values[output_node] * 255, 0, 0)
     pygame.draw.circle(screen, color, center2, NODE_SIZE)
     pygame.draw.circle(screen, WHITE, center2, NODE_SIZE, width=5)
+
+    center = (startX - 0.5 * NODE_SIZE, startY + i * 3 * NODE_SIZE)
+    img = font.render(node_names[output_node], True, WHITE)
+    screen.blit(img, center)
+
+    color = (net.values[input_node] * 255, 0, 0)
 
 def draw_snake():
   for i, (x, y) in enumerate(snake):
@@ -190,8 +196,8 @@ def get_sensory():
     y == a_y and a_x < x,
   ]
 
-  return 1.0 * np.array(dist_to_wall + will_hit_tail)
-  # return 1.0 * np.array(dist_to_wall + will_hit_tail + apple_info)
+  # return 1.0 * np.array(dist_to_wall + will_hit_tail)
+  return 1.0 * np.array(dist_to_wall + will_hit_tail + apple_info)
 
 def change_direction(code):
   global v_x
