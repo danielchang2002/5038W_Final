@@ -76,7 +76,7 @@ def replay_genome(genome, config):
         0: 'up', 1 : "left", 2 : "down", 3 : "right"
     }
 
-    visualize.draw_net(config, genome, False, node_names=node_names, filename="winner-feedforward.gv", prune_unused=True)
+    # visualize.draw_net(config, genome, False, node_names=node_names, filename="winner-feedforward.gv")
 
     simulate_animation(net)
 
@@ -96,7 +96,6 @@ def test_winner(config_file, genome):
                          config_file)
     
     replay_genome(winner, config)
-
 
 
 if __name__ == '__main__':

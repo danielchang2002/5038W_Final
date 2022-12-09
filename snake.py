@@ -18,7 +18,8 @@ MIN_TIME_TO_EAT_APPLE = 100
 
 # ----------------animation stuff--------------
 interval = 100
-networkWidth, networkHeight = 500, 900
+NODE_SIZE = 25
+networkWidth, networkHeight = 700, 900
 gameWidth, gameHeight = 900, 900
 window_buffer = 25
 screenWidth = window_buffer + networkWidth + window_buffer + gameWidth + window_buffer
@@ -31,6 +32,7 @@ WHITE = (255, 255, 255)
 YELLOW = (255, 255, 0)
 BLACK = (0, 0, 0)
 BUFFER = 8
+font = None
 # ----------------animation stuff--------------
 
 def reset():
@@ -74,6 +76,7 @@ def simulate_headless(net):
 
 def simulate_animation(net):
   global screen
+  global font
   reset()
   last_ate_apple = 0
   screen = pygame.display.set_mode((screenWidth, screenHeight))
@@ -81,6 +84,7 @@ def simulate_animation(net):
   pygame.time.set_timer(STEP, interval)
 
   pygame.init()
+  font = pygame.font.Font("cmunbtl.otf", 24)
   running = True
   ts = 0
   while running:
@@ -110,9 +114,6 @@ def simulate_animation(net):
   pygame.quit()
 
 def draw_network(net):
-  print(net.input_nodes)
-  print(net.output_nodes)
-
   node_names = {
       -1 : "d_N_wall",
       -2 : "d_S_wall",
@@ -128,6 +129,29 @@ def draw_network(net):
       -12 : "apple_W",
       0: 'up', 1 : "left", 2 : "down", 3 : "right"
   }
+
+  startY = window_buffer + NODE_SIZE
+  startX = window_buffer + NODE_SIZE
+
+  for i, input_node in enumerate(net.input_nodes):
+    center = (startX, startY + i * 3 * NODE_SIZE)
+    img = font.render(node_names[input_node], True, WHITE)
+    screen.blit(img, center)
+
+    color = (net.values[input_node] * 255, 0, 0)
+
+    center2 = startX + 6 * NODE_SIZE, startY + i * 3 * NODE_SIZE + 10
+    pygame.draw.circle(screen, color, center2, NODE_SIZE)
+    pygame.draw.circle(screen, WHITE, center2, NODE_SIZE, width=5)
+
+  startY = window_buffer + 12 * NODE_SIZE
+  startX = screenWidth - gameWidth - window_buffer * 3 - NODE_SIZE
+
+  for i, output_node in enumerate(net.output_nodes):
+    center2 = startX, startY + i * 3 * NODE_SIZE + 10
+    color = (net.values[output_node] * 255, 0, 0)
+    pygame.draw.circle(screen, color, center2, NODE_SIZE)
+    pygame.draw.circle(screen, WHITE, center2, NODE_SIZE, width=5)
 
 def draw_snake():
   for i, (x, y) in enumerate(snake):
@@ -166,8 +190,8 @@ def get_sensory():
     y == a_y and a_x < x,
   ]
 
-  # return 1.0 * np.array(dist_to_wall + will_hit_tail)
-  return 1.0 * np.array(dist_to_wall + will_hit_tail + apple_info)
+  return 1.0 * np.array(dist_to_wall + will_hit_tail)
+  # return 1.0 * np.array(dist_to_wall + will_hit_tail + apple_info)
 
 def change_direction(code):
   global v_x
@@ -217,7 +241,8 @@ def step():
   return ate_apple
 
 def draw_square():
-  rect = pygame.Rect(gameTopLeft, (gameWidth, gameHeight))
+  draw = gameTopLeft[0] - BUFFER, gameTopLeft[1] - BUFFER
+  rect = pygame.Rect(draw, (gameWidth + 2 * BUFFER, gameHeight + 2 * BUFFER))
   pygame.draw.rect(screen, WHITE, rect, width=BUFFER // 2)
 
 def getLeftTop(x, y):
