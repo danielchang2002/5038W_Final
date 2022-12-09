@@ -2,6 +2,7 @@ from random import random
 import random as random_module
 import numpy as np
 import pygame
+import cv2
 
 random_module.seed(42)
 
@@ -31,6 +32,8 @@ RED = (255, 0, 0)
 WHITE = (255, 255, 255)
 YELLOW = (255, 255, 0)
 BLACK = (0, 0, 0)
+BLUE = (70, 130, 180)
+ORANGE = (255, 165, 13)
 BUFFER = 8
 font = None
 # ----------------animation stuff--------------
@@ -78,6 +81,9 @@ def simulate_animation(net, genome):
   global screen
   global font
   reset()
+
+  node_centers = get_node_centers(net, genome)
+
   last_ate_apple = 0
   screen = pygame.display.set_mode((screenWidth, screenHeight))
   STEP = pygame.USEREVENT + 1
@@ -109,11 +115,31 @@ def simulate_animation(net, genome):
     draw_square() 
     draw_snake() 
     draw_apple() 
-    draw_network(net, genome)
+    draw_network(net, genome, node_centers)
     pygame.display.flip()
   pygame.quit()
 
-def draw_network(net, genome):
+def get_node_centers(net, genome):
+  
+  node_centers = {}
+
+  startY = window_buffer + NODE_SIZE
+  startX = window_buffer
+
+  for i, input_node in enumerate(net.input_nodes):
+    center2 = startX + 5.5 * NODE_SIZE, startY + i * 3 * NODE_SIZE + 10
+    node_centers[input_node] = center2
+
+  startY = window_buffer + 12 * NODE_SIZE
+  startX = screenWidth - gameWidth - window_buffer * 3 - NODE_SIZE
+
+  for i, output_node in enumerate(net.output_nodes):
+    center2 = startX - 2 * NODE_SIZE, startY + i * 3 * NODE_SIZE + 10
+    node_centers[output_node] = center2
+
+  return node_centers
+
+def draw_network(net, genome, node_centers):
   node_names = {
       -1 : "d_N_wall",
       -2 : "d_S_wall",
@@ -130,34 +156,48 @@ def draw_network(net, genome):
       0: 'up', 1 : "left", 2 : "down", 3 : "right"
   }
 
-  startY = window_buffer + NODE_SIZE
-  startX = window_buffer
+  # draw connections between input and output nodes
+  for input_node in net.input_nodes:
+    for output_node in net.output_nodes:
+      if (input_node, output_node) in genome.connections:
+        start = node_centers[input_node]
+        stop = node_centers[output_node]
+        weight = genome.connections[(input_node, output_node)].weight
+        color = BLUE if weight >= 0 else ORANGE
 
+        surf = pygame.Surface((screenWidth, screenHeight), pygame.SRCALPHA)
+        pygame.draw.line(surf, color + (255 * net.values[input_node],), start, stop, width=5)
+        screen.blit(surf, (0, 0))
+
+        # shape_surf = pygame.Surface(pygame.Rect(rect).size, pygame.SRCALPHA)
+        # pygame.draw.rect(shape_surf, color, shape_surf.get_rect())
+        # surface.blit(shape_surf, rect)
+
+        # pygame.draw.line(screen, color, start, stop, width=5)
+
+  # draw input nodes
   for i, input_node in enumerate(net.input_nodes):
-    center = (startX, startY + i * 3 * NODE_SIZE)
+    center = node_centers[input_node]
+
+    center2 = center[0] - 5.5 * NODE_SIZE, center[1] - 10
     img = font.render(node_names[input_node], True, WHITE)
-    screen.blit(img, center)
+    screen.blit(img, center2)
 
     color = (net.values[input_node] * 255, 0, 0)
 
-    center2 = startX + 5.5 * NODE_SIZE, startY + i * 3 * NODE_SIZE + 10
-    pygame.draw.circle(screen, color, center2, NODE_SIZE)
-    pygame.draw.circle(screen, WHITE, center2, NODE_SIZE, width=5)
+    pygame.draw.circle(screen, color, center, NODE_SIZE)
+    pygame.draw.circle(screen, WHITE, center, NODE_SIZE, width=5)
 
-  startY = window_buffer + 12 * NODE_SIZE
-  startX = screenWidth - gameWidth - window_buffer * 3 - NODE_SIZE
-
+  # draw output nodes
   for i, output_node in enumerate(net.output_nodes):
-    center2 = startX - 2 * NODE_SIZE, startY + i * 3 * NODE_SIZE + 10
+    center = node_centers[output_node]
     color = (net.values[output_node] * 255, 0, 0)
-    pygame.draw.circle(screen, color, center2, NODE_SIZE)
-    pygame.draw.circle(screen, WHITE, center2, NODE_SIZE, width=5)
+    pygame.draw.circle(screen, color, center, NODE_SIZE)
+    pygame.draw.circle(screen, WHITE, center, NODE_SIZE, width=5)
 
-    center = (startX - 0.5 * NODE_SIZE, startY + i * 3 * NODE_SIZE)
+    center2 = center[0] + 1.5 * NODE_SIZE, center[1] - 10
     img = font.render(node_names[output_node], True, WHITE)
-    screen.blit(img, center)
-
-    color = (net.values[input_node] * 255, 0, 0)
+    screen.blit(img, center2)
 
 def draw_snake():
   for i, (x, y) in enumerate(snake):
