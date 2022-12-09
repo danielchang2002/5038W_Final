@@ -2,7 +2,6 @@ from random import random
 import random as random_module
 import numpy as np
 import pygame
-import cv2
 
 random_module.seed(42)
 
@@ -77,12 +76,70 @@ def simulate_headless(net):
 
   return np.mean(scores)
 
-def simulate_animation(net, genome):
+def feed_forward_layers(inputs, outputs, connections, genome):
+  """
+  Modify neat-python's function to display more hidden nodes 
+  """
+  required = set(genome.nodes)
+
+  layers = []
+  s = set(inputs)
+  while 1:
+      # Find candidate nodes c for the next layer.  These nodes should connect
+      # a node in s to a node not in s.
+      c = set(b for (a, b) in connections if a in s and b not in s)
+      # Keep only the used nodes whose entire input set is contained in s.
+      t = set()
+      for n in c:
+          if n in required and all(a in s for (a, b) in connections if b == n):
+              t.add(n)
+
+      if not t:
+          break
+
+      layers.append(t)
+      s = s.union(t)
+
+  return layers
+
+def modify_eval_functions(net, genome, config):
+  """
+  Modify neat-python's function to display more hidden nodes 
+  """
+  # Gather expressed connections.
+  connections = [cg.key for cg in genome.connections.values() if cg.enabled]
+
+  layers = feed_forward_layers(config.genome_config.input_keys, config.genome_config.output_keys, connections, genome)
+  node_evals = []
+  for layer in layers:
+      for node in layer:
+          inputs = []
+          for conn_key in connections:
+              inode, onode = conn_key
+              if onode == node:
+                  cg = genome.connections[conn_key]
+                  inputs.append((inode, cg.weight))
+
+          ng = genome.nodes[node]
+          aggregation_function = config.genome_config.aggregation_function_defs.get(ng.aggregation)
+          activation_function = config.genome_config.activation_defs.get(ng.activation)
+          node_evals.append((node, activation_function, aggregation_function, ng.bias, ng.response, inputs))
+  
+  net.node_evals = node_evals
+
+def simulate_animation(net, genome, config):
   global screen
   global font
   reset()
 
-  node_centers = get_node_centers(net, genome)
+  modify_eval_functions(net, genome, config)
+  has_eval = set(eval[0] for eval in net.node_evals)
+
+  has_input = set(con[1] for con in genome.connections)
+
+  hidden_nodes = [node for node in genome.nodes if not 0 <= node <= 3 and node in has_input and node in has_eval]
+
+  node_centers = get_node_centers(net, genome, hidden_nodes)
 
   last_ate_apple = 0
   screen = pygame.display.set_mode((screenWidth, screenHeight))
@@ -115,11 +172,11 @@ def simulate_animation(net, genome):
     draw_square() 
     draw_snake() 
     draw_apple() 
-    draw_network(net, genome, node_centers)
+    draw_network(net, genome, node_centers, hidden_nodes)
     pygame.display.flip()
   pygame.quit()
 
-def get_node_centers(net, genome):
+def get_node_centers(net, genome, hidden_nodes):
   
   node_centers = {}
 
@@ -130,6 +187,19 @@ def get_node_centers(net, genome):
     center2 = startX + 5.5 * NODE_SIZE, startY + i * 3 * NODE_SIZE + 10
     node_centers[input_node] = center2
 
+  startY = window_buffer + NODE_SIZE
+  startX = window_buffer
+
+  startX = window_buffer + 0.5 * networkWidth
+  startY = window_buffer + NODE_SIZE * 6
+
+  for i, hidden_node in enumerate(hidden_nodes):
+    x = startX + 2 * NODE_SIZE if i % 2 == 0 else startX - 2 * NODE_SIZE
+    if i == 2: x += NODE_SIZE * 3
+    center2 = x, startY + i * 5 * NODE_SIZE + 10
+    node_centers[hidden_node] = center2
+
+
   startY = window_buffer + 12 * NODE_SIZE
   startX = screenWidth - gameWidth - window_buffer * 3 - NODE_SIZE
 
@@ -139,7 +209,22 @@ def get_node_centers(net, genome):
 
   return node_centers
 
-def draw_network(net, genome, node_centers):
+def draw_connections(first_set, second_set, net, genome, node_centers):
+  for first in first_set:
+    for second in second_set:
+      if (first, second) in genome.connections:
+        start = node_centers[first]
+        stop = node_centers[second]
+        weight = genome.connections[(first, second)].weight
+        color = BLUE if weight >= 0 else ORANGE
+
+        surf = pygame.Surface((screenWidth, screenHeight), pygame.SRCALPHA)
+        alpha = 255 * (0.3 + net.values[first] * 0.7)
+        pygame.draw.line(surf, color + (alpha,), start, stop, width=5)
+        screen.blit(surf, (0, 0))
+
+def draw_network(net, genome, node_centers, hidden_nodes):
+
   node_names = {
       -1 : "d_N_wall",
       -2 : "d_S_wall",
@@ -157,23 +242,10 @@ def draw_network(net, genome, node_centers):
   }
 
   # draw connections between input and output nodes
-  for input_node in net.input_nodes:
-    for output_node in net.output_nodes:
-      if (input_node, output_node) in genome.connections:
-        start = node_centers[input_node]
-        stop = node_centers[output_node]
-        weight = genome.connections[(input_node, output_node)].weight
-        color = BLUE if weight >= 0 else ORANGE
-
-        surf = pygame.Surface((screenWidth, screenHeight), pygame.SRCALPHA)
-        pygame.draw.line(surf, color + (255 * net.values[input_node],), start, stop, width=5)
-        screen.blit(surf, (0, 0))
-
-        # shape_surf = pygame.Surface(pygame.Rect(rect).size, pygame.SRCALPHA)
-        # pygame.draw.rect(shape_surf, color, shape_surf.get_rect())
-        # surface.blit(shape_surf, rect)
-
-        # pygame.draw.line(screen, color, start, stop, width=5)
+  draw_connections(net.input_nodes, net.output_nodes, net, genome, node_centers)
+  draw_connections(net.input_nodes, hidden_nodes, net, genome, node_centers)
+  draw_connections(hidden_nodes, hidden_nodes, net, genome, node_centers)
+  draw_connections(hidden_nodes, net.output_nodes, net, genome, node_centers)
 
   # draw input nodes
   for i, input_node in enumerate(net.input_nodes):
@@ -198,6 +270,19 @@ def draw_network(net, genome, node_centers):
     center2 = center[0] + 1.5 * NODE_SIZE, center[1] - 10
     img = font.render(node_names[output_node], True, WHITE)
     screen.blit(img, center2)
+
+  # draw hidden nodes
+
+  for hidden in hidden_nodes:
+    center = node_centers[hidden]
+    color = (net.values[hidden] * 255, 0, 0)
+
+    # center2 = center[0] - 5.5 * NODE_SIZE, center[1] - 10
+    # img = font.render(str(hidden), True, WHITE)
+    # screen.blit(img, center2)
+
+    pygame.draw.circle(screen, color, center, NODE_SIZE)
+    pygame.draw.circle(screen, WHITE, center, NODE_SIZE, width=5)
 
 def draw_snake():
   for i, (x, y) in enumerate(snake):

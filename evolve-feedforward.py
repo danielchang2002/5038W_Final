@@ -78,7 +78,7 @@ def replay_genome(genome, config):
 
     # visualize.draw_net(config, genome, False, node_names=node_names, filename="winner-feedforward.gv")
 
-    simulate_animation(net, genome)
+    simulate_animation(net, genome, config)
 
 def test_population(config_file, pop_file):
     config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,

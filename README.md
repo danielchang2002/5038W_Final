@@ -11,7 +11,12 @@ git clone https://github.com/danielchang2002/5038W_Final.git
 pip3 install -r requirements.txt
 ```
 
-3. Run experiment
+3. Test the best agent
+```bash
+python3 evolve-feedforward.py target_pursuit_2000_results/winner-feedforward
+```
+
+4. Run experiment
 ```bash
 python3 evolve-feedforward.py
 ```
