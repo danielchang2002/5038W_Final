@@ -58,6 +58,7 @@ def run(config_file):
     visualize.plot_species(stats, view=True, filename="feedforward-speciation.svg")
 
 def replay_genome(genome, config):
+    print(genome)
     net = neat.nn.FeedForwardNetwork.create(genome, config)
 
     node_names = {
@@ -76,7 +77,7 @@ def replay_genome(genome, config):
         0: 'up', 1 : "left", 2 : "down", 3 : "right"
     }
 
-    # visualize.draw_net(config, genome, False, node_names=node_names, filename="winner-feedforward.gv")
+    visualize.draw_net(config, genome, False, node_names=node_names, filename="winner-feedforward.gv")
 
     simulate_animation(net)
 
