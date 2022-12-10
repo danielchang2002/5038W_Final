@@ -1,5 +1,7 @@
 # 5038W Snake AI
 
+Daniel Chang, Isaac Liao
+
 # How to use:
 1. Git clone
 ```bash
